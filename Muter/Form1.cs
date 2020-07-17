@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -12,9 +13,38 @@ namespace Muter
 {
     public partial class Form1 : Form
     {
+        private bool skipFirstOnEvent = true;
+        private AudioManager audio = null;
+        private bool muted = false;
+
+
         public Form1()
         {
             InitializeComponent();
+
+            audio = new AudioManager();
+
+            RegistryKey registryKey = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
+            registryKey.SetValue("Muter", Application.ExecutablePath);
+        }
+
+
+        private void MonitorOff()
+        {
+            if (!audio.GetMute())
+            {
+                audio.SetMute(true);
+                muted = true;
+            }
+        }
+
+        private void MonitorOn()
+        {
+            if (muted)
+            {
+                audio.SetMute(false);
+                muted = false;
+            }
         }
 
         private void notifyIcon1_Click(object sender, EventArgs e)
@@ -38,12 +68,6 @@ namespace Muter
 
         private void notifyIcon1_MouseClick(object sender, MouseEventArgs e)
         {
-            if (e.Button != MouseButtons.Right)
-            {
-                this.Hide();
-                this.Show();
-                this.BringToFront();
-            }
 
         }
 
@@ -74,16 +98,28 @@ namespace Muter
                 case NativeMethods.WM_POWERBROADCAST:
                     if (m.WParam == (IntPtr)NativeMethods.PBT_POWERSETTINGCHANGE)
                     {
-                        var settings = (NativeMethods.POWERBROADCAST_SETTING)m.GetLParam(
-                            typeof(NativeMethods.POWERBROADCAST_SETTING));
+                        var settings = (NativeMethods.POWERBROADCAST_SETTING)m.GetLParam(typeof(NativeMethods.POWERBROADCAST_SETTING));
+
                         switch (settings.Data)
                         {
                             case 0:
                                 Console.WriteLine("Monitor Power Off");
+                                this.MonitorOff();
+
                                 break;
                             case 1:
                                 //SKIP FIRST EVENT
                                 Console.WriteLine("Monitor Power On");
+
+                                if (this.skipFirstOnEvent)
+                                {
+                                    this.skipFirstOnEvent = false;
+                                }
+                                else
+                                {
+                                    this.MonitorOn();
+                                }
+
                                 break;
                             case 2:
                                 Console.WriteLine("Monitor Dimmed");
@@ -98,14 +134,18 @@ namespace Muter
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            NativeMethods.UnregisterPowerSettingNotification(unRegPowerNotify);
+            // NativeMethods.UnregisterPowerSettingNotification(unRegPowerNotify);
             base.OnFormClosing(e);
         }
 
-        private void button1_Click(object sender, EventArgs e)
+        private void Form1_Shown(object sender, EventArgs e)
         {
-            AudioManager.SetMasterVolumeMute(!AudioManager.GetMasterVolumeMute());
-            Console.WriteLine(AudioManager.GetMasterVolumeMute());
+            this.Hide();
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+
         }
     }
 

@@ -7,52 +7,36 @@ using System.Threading.Tasks;
 
 namespace Muter
 {
-    public static class AudioManager
+    public class AudioManager
     {
-        /// <summary>
-        /// Gets the mute state of the master volume. 
-        /// While the volume can be muted the <see cref="GetMasterVolume"/> will still return the pre-muted volume value.
-        /// </summary>
-        /// <returns>false if not muted, true if volume is muted</returns>
-        public static bool GetMasterVolumeMute()
-        {
-            IAudioEndpointVolume masterVol = null;
-            try
-            {
-                masterVol = GetMasterVolumeObject();
-                if (masterVol == null)
-                    return false;
 
-                bool isMuted;
-                masterVol.GetMute(out isMuted);
-                return isMuted;
-            }
-            finally
-            {
-                if (masterVol != null)
-                    Marshal.ReleaseComObject(masterVol);
-            }
+        private IAudioEndpointVolume masterVol = null;
+        private Guid guid = new Guid();
+
+        public AudioManager()
+        {
+            this.masterVol = GetMasterVolumeObject();
+            if (masterVol == null)
+                throw new Exception("Can't get volume manager object.");
         }
 
-        public static void SetMasterVolumeMute(bool mute)
+        ~AudioManager()
         {
-            IAudioEndpointVolume masterVol = null;
-            try
-            {
-                masterVol = GetMasterVolumeObject();
-                if (masterVol == null)
-                    return;
-
-                Guid ZeroGuid = new Guid(); //store this
-                masterVol.SetMute(mute, ZeroGuid);
-            }
-            finally
-            {
-                if (masterVol != null)
-                    Marshal.ReleaseComObject(masterVol);
-            }
+            Marshal.ReleaseComObject(masterVol);
         }
 
+        public bool GetMute()
+        {
+            bool isMuted;
+            masterVol.GetMute(out isMuted);
+            return isMuted;
+        }
+
+        public void SetMute(bool mute)
+        {
+
+            masterVol.SetMute(mute, this.guid);
+        }
 
 
         private static IAudioEndpointVolume GetMasterVolumeObject()
@@ -121,7 +105,7 @@ namespace Muter
 
         // http://netcoreaudio.codeplex.com/SourceControl/latest#trunk/Code/CoreAudio/Interfaces/IAudioEndpointVolume.cs
         [Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        public interface IAudioEndpointVolume
+        private interface IAudioEndpointVolume
         {
             [PreserveSig]
             int NotImpl1();
